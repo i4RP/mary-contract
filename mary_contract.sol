@@ -23,7 +23,7 @@ contract mary {
     //アドレス(key)からその人が結婚申請をしたアドレス一覧(value)を収納・取得可能に
     mapping (address => address[]) public personalAddressToPartnerAddresses;
 
-
+    //婚約申請履歴確認
     //アドレス(key)からその人が結婚申請をしたアドレス一覧(value)を取得
     function getPartnerAddressesByPersonalAddress(address _personalAddress) public view returns (address[]) {
         return personalAddressToPartnerAddresses[_personalAddress];
@@ -56,9 +56,36 @@ contract mary {
             }
         return checkPropose;
     }
+    //婚約確認コントラクト
+    function checkEngagement(address _firstAddress,address _secondAddress) public view returns(uint8){
 
-    //結婚申請コントラクト
-    function propose(address _pertnerAddress) external payable {
+        //一人目のアドレスから二人目のアドレスへ申請済みか
+        bool checkFirstToSecond = checkProposePersonalToSomeOne(_firstAddress,_secondAddress);
+        //二人目のアドレスから一人目のアドレスへ申請済みか
+        bool checkSecondToFirst = checkProposePersonalToSomeOne(_secondAddress,_firstAddress);
+
+        uint8 engagementStatus;
+
+         //一人目から二人目に一方的に申請している状態 true,false
+        if(checkFirstToSecond == true && checkSecondToFirst == false){
+            engagementStatus = 1;
+        }//お互いにまだ申請していない状態 false,false
+        else if(checkFirstToSecond == false && checkSecondToFirst == false){
+            engagementStatus = 2;
+        }//二人目から一人目に一方的に申請している状態 false,true
+        else if(checkFirstToSecond == false && checkSecondToFirst == true){
+            engagementStatus = 3;
+        }//婚約済みの状態　true,true
+        else if(checkFirstToSecond == true && checkSecondToFirst == true){
+            engagementStatus = 4;
+        }
+        return engagementStatus;
+    }
+
+    //婚約申請コントラクト
+    function propose(address _pertnerAddress) external returns(uint8){
+
+        uint8 proposeStatus;
 
         //(自分から相手へ申請済みか、相手が自分に申請済みか)
         bool checkPersonalToPertner = checkProposePersonalToSomeOne(msg.sender,_pertnerAddress);
@@ -66,23 +93,21 @@ contract mary {
 
          //その相手に対して過去に申請していた場合は受け流す true,false
         if(checkPersonalToPertner == true && checkPertnerToPersonal == false){
-            _pertnerAddress.transfer(msg.value);
-
+            proposeStatus = 1;
         }//その相手が初めての申請の場合は登録する false,false
         else if(checkPersonalToPertner == false && checkPertnerToPersonal == false){
             setPartnerAddressByPertnerAddress(_pertnerAddress);
-            _pertnerAddress.transfer(msg.value);
-
+            proposeStatus = 2;
         }//逆にその相手が過去に自分に対して申請していた場合は婚約したとして婚約証明を作成 false,true
         else if(checkPersonalToPertner == false && checkPertnerToPersonal == true){
             uint256 timestamp = block.timestamp;
             _createEngagement(timestamp,_pertnerAddress,msg.sender);
-            _pertnerAddress.transfer(msg.value);
-
+            proposeStatus = 3;
         }//その上で既に婚約済みの場合は受け流す。true,true
         else if(checkPersonalToPertner == true && checkPertnerToPersonal == true){
-            _pertnerAddress.transfer(msg.value);
+            proposeStatus = 4;
         }
+        return proposeStatus;
     }
 
 }
